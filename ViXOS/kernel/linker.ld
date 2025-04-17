@@ -1,15 +1,29 @@
-ENTRY(kernel_main)
+ENTRY(_start)
+SECTIONS {
+  . = 1M;
 
-SECTIONS
-{
-    . = 0x100000;
+  .text ALIGN(4K) : AT(ADDR(.text)) {
+    *(.multiboot)
+    *(.text*)
+  } :text
 
-    .multiboot : {
-        KEEP(*(.multiboot))
-    }
+  .rodata ALIGN(4K) : {
+    *(.rodata*)
+  } :rodata
 
-    .text : { *(.text*) }
-    .rodata : { *(.rodata*) }
-    .data : { *(.data*) }
-    .bss : { *(.bss*) *(COMMON) }
+  .data ALIGN(4K) : {
+    *(.data*)
+  } :data
+
+  .bss ALIGN(4K) : {
+    *(.bss*)
+    *(COMMON)
+  } :bss
+}
+
+PHDRS {
+  text PT_LOAD FLAGS(5);    /* RX */
+  rodata PT_LOAD FLAGS(4);  /* R  */
+  data PT_LOAD FLAGS(6);    /* RW */
+  bss PT_LOAD FLAGS(6);     /* RW */
 }
