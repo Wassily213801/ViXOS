@@ -1,5 +1,6 @@
 #include "video.h"
 #include "port_io.h"
+#include "string.h"
 
 #define VGA_ADDRESS 0xB8000
 #define VGA_WIDTH 80
