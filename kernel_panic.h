@@ -3,6 +3,6 @@
 
 void panic(const char* message, int error_code);
 void panic_command(const char* arg);
-int atoi(const char* str);  // Add our custom atoi declaration
+void ahci_panic(int error_code, const char* message);  // Добавляем
 
 #endif

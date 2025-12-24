@@ -17,4 +17,6 @@ void gui_command();
 void terminal_writehex(uint32_t value);
 void guess_game_integrated(void); // Оставьте только это объявление
 void time_command(); // Добавьте эту строку
+void ahci_command(); // Добавляем объявление команды AHCI
+void ide_command(); // Добавьте это объявление
 #endif

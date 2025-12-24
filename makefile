@@ -1,17 +1,17 @@
 ARCH = i386
-CC = clang 
+CC = gcc
 AS = nasm
 LD = ld
 CFLAGS = -ffreestanding -m32 -g -Wall -Wextra -c -fno-stack-protector -fno-pic
 ASFLAGS = -f elf32
 LDFLAGS = -m elf_i386 -T linker.ld -nostdlib -z max-page-size=0x1000
-OBJS = kernel.o terminal.o video.o keyboard.o sys.o string.o port_io.o pmm.o idt.o isr.o isr_stub.o irq.o timer.o isr_handler.o idt_load.o irq_stub.o login.o boot_screen.o ramdisk.o kernel_panic.o fat.o audio.o gfx.o gfx_window.o gui.o ide.o memory.o port_io_audio.o guess.o calculator.o time.o vixfs.o
+OBJS = kernel.o terminal.o video.o keyboard.o sys.o string.o port_io.o pmm.o idt.o isr.o isr_stub.o irq.o timer.o isr_handler.o idt_load.o irq_stub.o login.o boot_screen.o ramdisk.o kernel_panic.o fat.o audio.o gfx.o gfx_window.o gui.o ide.o memory.o port_io_audio.o guess.o calculator.o time.o vixfs.o snake.o shutdown_screen.o  ahci.o pci.o
 
 ISO_DIR = isofiles
 ISO_BOOT = $(ISO_DIR)/boot
 ISO_GRUB = $(ISO_DIR)/boot/grub
 GRUB_CFG = $(ISO_GRUB)/grub.cfg
-ISO_IMAGE = ViXOS_Code_Name_Nova_Build_37.25.iso
+ISO_IMAGE = ViXOS_Code_Name_Nova_Build_37.27.iso
 
 BOOTLOADER = boot.bin
 BOOT_SRC = boot.asm
@@ -21,6 +21,7 @@ FATROOT_DIR = fatroot
 AUDIO_DIR = audio_files
 GAMES_DIR = Games
 GUESS_GAME_DIR = $(GAMES_DIR)/Guess
+SNAKE_GAME_DIR = $(GAMES_DIR)/Snake
 UTILS_DIR = Utilities
 CALCULATOR_DIR = $(UTILS_DIR)/Calculator
 TIME_DIR = $(UTILS_DIR)/Time
@@ -31,7 +32,7 @@ IDE_DRIVERS_DIR = $(STORAGE_DRIVERS_DIR)/IDE
 RTC_DRIVERS_DIR = $(DRIVERS_DIR)/RTC
 
 QEMU = qemu-system-i386
-QEMU_FLAGS = -cdrom $(ISO_IMAGE) -m 512M -serial stdio -audio driver=sdl,model=sb16 -drive file=disk.img,format=raw,if=ide -rtc base=localtime
+QEMU_FLAGS = -cdrom $(ISO_IMAGE) -m 512M -serial stdio -audio driver=sdl,model=sb16 -drive file=disk.img,format=raw,if=none,id=disk0 -device ahci,id=ahci0 -device ide-hd,drive=disk0,bus=ahci0.0 -rtc base=localtime
 
 all: $(BOOTLOADER) kernel.bin disk.img $(ISO_IMAGE)
 
@@ -53,7 +54,7 @@ disk.img:
 	@echo "Test disk image created: disk.img"
 
 $(ISO_IMAGE): $(BOOTLOADER) kernel.bin disk.img prepare_filesystem
-	@echo "Creating ISO image with ATA support, Guess game, Calculator and Time..."
+	@echo "Creating ISO image with ATA support, Guess game, Snake game, Calculator and Time..."
 	@mkdir -p $(ISO_BOOT) $(ISO_GRUB)
 	@cp $(BOOTLOADER) $(ISO_BOOT)/
 	@cp kernel.bin $(ISO_BOOT)/
@@ -67,7 +68,7 @@ $(ISO_IMAGE): $(BOOTLOADER) kernel.bin disk.img prepare_filesystem
 	@echo "ISO image created: $(ISO_IMAGE)"
 
 prepare_filesystem:
-	@echo "Preparing filesystem with ATA support, Guess game, Calculator, Time and ViXFS..."
+	@echo "Preparing filesystem with ATA support, Guess game, Snake game, Calculator, Time and ViXFS..."
 	@mkdir -p $(ISO_DIR)/$(RAMDISK_DIR)
 	@echo "RAMDISK initialization script" > $(ISO_DIR)/$(RAMDISK_DIR)/init.vix
 	@echo "Welcome to ViXOS!" > $(ISO_DIR)/$(RAMDISK_DIR)/motd.txt
@@ -85,8 +86,10 @@ prepare_filesystem:
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(RTC_DRIVERS_DIR)
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(FS_DRIVERS_DIR)
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(VIXFS_DRIVERS_DIR)
+	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(STORAGE_DRIVERS_DIR)
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(GAMES_DIR)
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(GUESS_GAME_DIR)
+	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(UTILS_DIR)
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(CALCULATOR_DIR)
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/$(TIME_DIR)
@@ -97,7 +100,7 @@ prepare_filesystem:
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/usr/lib/vixfs
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/usr/include/vixfs
 	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/usr/share/doc/vixfs
-	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/sys/fs/vixfs  # ДОБАВЛЕНО
+	@mkdir -p $(ISO_DIR)/$(FATROOT_DIR)/sys/fs/vixfs
 	
 	@echo "System initialization script" > $(ISO_DIR)/$(FATROOT_DIR)/init.vix
 	@echo "System configuration" > $(ISO_DIR)/$(FATROOT_DIR)/config.sys
@@ -107,8 +110,62 @@ prepare_filesystem:
 	@echo "Test application binary" > $(ISO_DIR)/$(FATROOT_DIR)/bin/test.app
 	@echo "Disk utility" > $(ISO_DIR)/$(FATROOT_DIR)/bin/diskutil.app
 	@echo "Guess the Number game" > $(ISO_DIR)/$(FATROOT_DIR)/bin/guess.app
+	@echo "Snake game" > $(ISO_DIR)/$(FATROOT_DIR)/bin/snake.app
 	@echo "Calculator application" > $(ISO_DIR)/$(FATROOT_DIR)/bin/calculator.app
 	@echo "Time utility" > $(ISO_DIR)/$(FATROOT_DIR)/bin/time.app
+	
+	# Добавляем файлы для игры Snake (Beta Version)
+	@echo "=== ViX Snake Game Beta v0.1 ===" > $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "Welcome to Snake Game for ViXOS!" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "CONTROLS:" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "  W or UP    - Move Up" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "  S or DOWN  - Move Down" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "  A or LEFT  - Move Left" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "  D or RIGHT - Move Right" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "  SPACE      - Pause/Resume" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "  ESC        - Quit Game" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "GOAL:" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "  Eat the food ($) to grow and score points." >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "  Avoid hitting walls and yourself!" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	@echo "This is a BETA version. Bugs may occur." >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/readme.txt
+	
+	@echo "[Snake Game Configuration]" > $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	@echo "Version = 0.1 Beta" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	@echo "BoardWidth = 40" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	@echo "BoardHeight = 20" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	@echo "StartLength = 3" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	@echo "MaxLength = 100" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	@echo "GameSpeed = 200" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	@echo "PointsPerFood = 10" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	@echo "ColorScheme = Classic" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/game.conf
+	
+	@echo "=== Snake High Scores ===" > $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/scores.dat
+	@echo "1. Player1 - 150" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/scores.dat
+	@echo "2. Player2 - 120" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/scores.dat
+	@echo "3. Player3 - 90" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/scores.dat
+	@echo "4. Player4 - 60" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/scores.dat
+	@echo "5. Player5 - 30" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/scores.dat
+	
+	@echo "Snake game resources file" > $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/resources.res
+	@echo "Snake game sprites and graphics data" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/resources.res
+	
+	@echo "Snake Game v0.1 Beta Changelog:" > $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "Version 0.1 (Beta) - Initial Release" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "  - Basic snake movement with WASD and arrow keys" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "  - Food generation and collision detection" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "  - Score tracking system" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "  - Pause functionality" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "  - Game over detection" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "  - Color-coded snake and food" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "Known Issues:" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "  - No sound effects yet" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
+	@echo "  - High score persistence not implemented" >> $(ISO_DIR)/$(FATROOT_DIR)/$(SNAKE_GAME_DIR)/changelog.txt
 	
 	# Добавляем файлы для утилиты времени
 	@echo "ViX Time Utility v1.0" > $(ISO_DIR)/$(FATROOT_DIR)/$(TIME_DIR)/readme.txt
@@ -289,6 +346,15 @@ prepare_filesystem:
 	@echo "SecondaryIDE = Enabled" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/storage.conf
 	@echo "LBAMode = Enabled" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/storage.conf
 	@echo "Timeout = 100000" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/storage.conf
+
+	# Добавляем исходники/заголовки AHCI драйвера в образ, чтобы система могла загрузить/распознать драйвер
+	@echo "Adding AHCI driver source files into ISO image..."
+	@cp ahci.c $(ISO_DIR)/$(FATROOT_DIR)/$(STORAGE_DRIVERS_DIR)/ahci.c 2>/dev/null || true
+	@cp ahci.h $(ISO_DIR)/$(FATROOT_DIR)/$(STORAGE_DRIVERS_DIR)/ahci.h 2>/dev/null || true
+	@echo "[AHCI Driver]" > $(ISO_DIR)/$(FATROOT_DIR)/$(STORAGE_DRIVERS_DIR)/ahci.drv
+	@echo "Name: AHCI SATA Driver" >> $(ISO_DIR)/$(FATROOT_DIR)/$(STORAGE_DRIVERS_DIR)/ahci.drv
+	@echo "Version: 1.0" >> $(ISO_DIR)/$(FATROOT_DIR)/$(STORAGE_DRIVERS_DIR)/ahci.drv
+	@echo "Status: Included" >> $(ISO_DIR)/$(FATROOT_DIR)/$(STORAGE_DRIVERS_DIR)/ahci.drv
 	
 	@echo "[Time]" > $(ISO_DIR)/$(FATROOT_DIR)/etc/time.conf
 	@echo "Timezone = Europe/Vienna" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/time.conf
@@ -302,6 +368,10 @@ prepare_filesystem:
 	@echo "GuessMaxAttempts = 10" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/games.conf
 	@echo "GuessMinNumber = 1" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/games.conf
 	@echo "GuessMaxNumber = 100" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/games.conf
+	@echo "SnakeEnabled = 1" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/games.conf
+	@echo "SnakeSpeed = 200" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/games.conf
+	@echo "SnakeBoardWidth = 40" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/games.conf
+	@echo "SnakeBoardHeight = 20" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/games.conf
 	
 	@echo "[Utilities]" > $(ISO_DIR)/$(FATROOT_DIR)/etc/utils.conf
 	@echo "CalculatorEnabled = 1" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/utils.conf
@@ -309,27 +379,27 @@ prepare_filesystem:
 	@echo "TimeEnabled = 1" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/utils.conf
 	@echo "TimeCommand = time" >> $(ISO_DIR)/$(FATROOT_DIR)/etc/utils.conf
 	
-	@echo "Filesystem preparation with ATA support, Guess game, Calculator and Time complete."
+	@echo "Filesystem preparation with ATA support, Guess game, Snake game (Beta), Calculator and Time complete."
 	
 run: all
-	@echo "Starting QEMU with ViXOS, audio, IDE support, Guess game, Calculator and Time..."
+	@echo "Starting QEMU with ViXOS and AHCI (SATA) disk attached..."
 	@$(QEMU) $(QEMU_FLAGS)
 
 run_with_pc_speaker: all
-	@echo "Starting QEMU with PC Speaker support, Guess game, Calculator and Time..."
-	@$(QEMU) -cdrom $(ISO_IMAGE) -m 512M -serial stdio -no-reboot -no-shutdown -audio driver=sdl,model=pcspk -drive file=disk.img,format=raw,if=ide -rtc base=localtime
+	@echo "Starting QEMU with PC Speaker support and AHCI disk..."
+	@$(QEMU) -cdrom $(ISO_IMAGE) -m 512M -serial stdio -no-reboot -no-shutdown -audio driver=sdl,model=pcspk -drive file=disk.img,format=raw,if=none,id=disk0 -device ahci,id=ahci0 -device ide-hd,drive=disk0,bus=ahci0.0 -rtc base=localtime
 
 run_with_sb16: all
-	@echo "Starting QEMU with Sound Blaster 16 support, Guess game, Calculator and Time..."
-	@$(QEMU) -cdrom $(ISO_IMAGE) -m 512M -serial stdio -no-reboot -no-shutdown -audio driver=sdl,model=sb16 -drive file=disk.img,format=raw,if=ide -rtc base=localtime
+	@echo "Starting QEMU with Sound Blaster 16 support and AHCI disk..."
+	@$(QEMU) -cdrom $(ISO_IMAGE) -m 512M -serial stdio -no-reboot -no-shutdown -audio driver=sdl,model=sb16 -drive file=disk.img,format=raw,if=none,id=disk0 -device ahci,id=ahci0 -device ide-hd,drive=disk0,bus=ahci0.0 -rtc base=localtime
 
 run_with_ac97: all
-	@echo "Starting QEMU with AC97 support, Guess game, Calculator and Time..."
-	@$(QEMU) -cdrom $(ISO_IMAGE) -m 512M -serial stdio -no-reboot -no-shutdown -audio driver=sdl,model=ac97 -drive file=disk.img,format=raw,if=ide -rtc base=localtime
+	@echo "Starting QEMU with AC97 support and AHCI disk..."
+	@$(QEMU) -cdrom $(ISO_IMAGE) -m 512M -serial stdio -no-reboot -no-shutdown -audio driver=sdl,model=ac97 -drive file=disk.img,format=raw,if=none,id=disk0 -device ahci,id=ahci0 -device ide-hd,drive=disk0,bus=ahci0.0 -rtc base=localtime
 
 run_no_audio: all
-	@echo "Starting QEMU without audio support, with Guess game, Calculator and Time..."
-	@$(QEMU) -cdrom $(ISO_IMAGE) -m 512M -serial stdio -no-reboot -no-shutdown -drive file=disk.img,format=raw,if=ide -rtc base=localtime
+	@echo "Starting QEMU without audio and with AHCI disk..."
+	@$(QEMU) -cdrom $(ISO_IMAGE) -m 512M -serial stdio -no-reboot -no-shutdown -drive file=disk.img,format=raw,if=none,id=disk0 -device ahci,id=ahci0 -device ide-hd,drive=disk0,bus=ahci0.0 -rtc base=localtime
 
 clean:
 	@echo "Cleaning up..."

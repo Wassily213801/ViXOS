@@ -16,6 +16,9 @@
 #include "pmm.h"
 #include "time.h"
 #include "vixfs.h"
+#include "snake.h"
+#include "shutdown_screen.h"
+#include "ahci.h"
 void gui_command();
 void calculator_command();
 void update_prompt();
@@ -59,10 +62,10 @@ const char* commands[] = {
     "ls", "mkdir", "echo", "cat", "read",
     "add", "rm", "save", "load", "meta",
     "cd", "logoff", "audio", "panic", "guess",
-    "calc", "meminfo", "time", "ideinfo",
-    "vixfs", "vixcreate", "vixdelete", "vixlist", "vixwrite", "vixread"  // Добавьте эти команды
+    "calc", "meminfo", "time", "ide",
+    "vixfs", "vixcreate", "vixdelete", "vixlist", "vixwrite", "vixread", "snake", "ahci"  // Добавьте эти команды
 };
-const int num_commands = 30;  // Обновите количество команд
+const int num_commands = 33;  // Обновите количество команд
 
 // Добавляем вспомогательную функцию для форматирования вывода памяти
 void print_memory_info(const char* label, uint64_t bytes) {
@@ -104,19 +107,73 @@ void gui_command() {
     gui_mode = 1;
     gui_run();
 }
-
+void ahci_command() {
+    video_print("\n");
+    
+    // Инициализируем AHCI если еще не инициализирован
+    if (!ahci_is_initialized()) {
+        video_print("[AHCI] Initializing driver...\n");
+        ahci_set_debug(1); // Включаем отладочный вывод
+        ahci_init();
+    }
+    
+    ahci_print_devices();
+    
+    // Обновляем промпт только если не в GUI режиме
+    if (!gui_mode) {
+        update_prompt();
+    }
+}
+void ide_command() {
+    video_print("\n");
+    
+    if (!ide_ctrl.initialized) {
+        ide_init();
+    }
+    
+    // Print in the requested format
+    for (int channel = 0; channel < 2; channel++) {
+        video_print("ide");
+        video_putc('0' + channel);
+        video_print(": ");
+        
+        // Master drive (hda)
+        if (ide_ctrl.channels[channel].drives[1].present) {
+            video_print("hda=");
+            const char* type = ide_get_drive_type_name(
+                ide_ctrl.channels[channel].drives[1].type);
+            video_print(type);
+        } else {
+            video_print("hda=none");
+        }
+        
+        video_print("  ");
+        
+        // Slave drive (hdb)
+        if (ide_ctrl.channels[channel].drives[0].present) {
+            video_print("hdb=");
+            const char* type = ide_get_drive_type_name(
+                ide_ctrl.channels[channel].drives[0].type);
+            video_print(type);
+        } else {
+            video_print("hdb=none");
+        }
+        
+        video_print("\n");
+    }
+    
+    video_print("\n");
+    update_prompt();
+}
 void update_prompt() {
     if (gui_mode) {
-        wm_terminal_writestring("\n");
         wm_terminal_writestring(cwd);
         wm_terminal_writestring("> ");
     } else {
-        video_print("\n");
         video_print(cwd);
         video_print("> ");
     }
 }
-
 void read_file_content(char* buffer, int max_len) {
     int len = 0;
     video_print("Enter content: ");
@@ -153,7 +210,9 @@ void handle_command(const char* cmd_line) {
         video_print("Available commands:\n");
         video_print("help, clear, version, off, reboot, ls, cd, mkdir\n");
         video_print("echo, cat <file>, read <file>, add <file>\n");
-        video_print("rm <file>, save, load, meta <file> logoff, audio, guess, meminfo, time\n");
+        video_print("rm <file>, save, load, meta <file> logoff, audio, guess, meminfo, time, snake,\n");
+        video_print("panic <message>, calc, ideinfo,\n");
+        video_print("vixfs, vixcreate <file>, vixdelete <file>, vixlist, vixwrite <file> <data>, vixread <file>, ahci\n");
     } else if (strcmp(cmd, "add") == 0) {
         if (!arg1) {
             video_print("Usage: add <filename>\n");
@@ -201,23 +260,23 @@ void handle_command(const char* cmd_line) {
         ramdisk_save("ramdisk.bin");
     } else if (strcmp(cmd, "version") == 0) {
         video_print("ViX Kernel 0.3 Beta\n");
-        video_print("ViXOS Code Name Nova Build: 37.25\n");
+        video_print("ViXOS Code Name Nova Build: 37.27\n");
         video_print("Architecture: i386\n");
         video_print("License: GPLv2\n");
     } else if (strcmp(cmd, "load") == 0) {
         ramdisk_load("ramdisk.bin");
     } else if (strcmp(cmd, "off") == 0) {
-        shutdown();
+    video_clear();
+    shutdown_screen();
+    
+    shutdown();
+    safe_shutdown_screen();
+    
+} else if (strcmp(cmd, "reboot") == 0) {
+    video_clear();
+    reboot_screen();
 
-        for (int i = 0; i < 3000; i++) {
-            for (int j = 0; j < 10000; j++) {
-                __asm__ volatile("nop");
-            }
-        }
-        
-        safe_shutdown_screen();
-    } else if (strcmp(cmd, "reboot") == 0) {
-        reboot();
+    reboot();
     } else if (strcmp(cmd, "mkdir") == 0) {
         if (!arg1) {
             video_print("Usage: mkdir <name>\n");
@@ -241,7 +300,6 @@ void handle_command(const char* cmd_line) {
     } else if (strcmp(cmd, "clear") == 0) {
         video_clear();
         terminal_init();
-        terminal_run();
     } else if (strcmp(cmd, "ls") == 0) {
         ramdisk_ls();
     } else if (strcmp(cmd, "cd") == 0) {
@@ -258,7 +316,6 @@ void handle_command(const char* cmd_line) {
                 video_print("\n");
             }
         }
-        update_prompt();
     } else if (strcmp(cmd, "panic") == 0) {
         panic_command(arg1); 
     } else if (strcmp(cmd, "logoff") == 0) {
@@ -266,7 +323,6 @@ void handle_command(const char* cmd_line) {
         display_welcome_menu();
         handle_welcome_menu();
         terminal_init();
-        terminal_run();
     } else if (strcmp(cmd, "guess") == 0) {
         guess_game();
     } else if (strcmp(cmd, "calc") == 0) {
@@ -353,53 +409,6 @@ void handle_command(const char* cmd_line) {
         }
     } else if (strcmp(cmd, "time") == 0) {
         time_command();
-    }else if (strcmp(cmd, "ideinfo") == 0) {
-    if (ide_disk_info.present) {
-        video_print("IDE Disk Information:\n");
-        video_print("====================\n");
-        
-        video_print("Status:         Present\n");
-        video_print("Controller:     ");
-        video_print(ide_disk_info.primary ? "Primary" : "Secondary");
-        video_print("\n");
-        video_print("Drive:          ");
-        video_print(ide_disk_info.slave ? "Slave" : "Master");
-        video_print("\n");
-        
-        video_print("Model:          ");
-        video_print(ide_disk_info.model);
-        video_print("\n");
-        
-        char buffer[32];
-        video_print("Cylinders:      ");
-        itoa(ide_disk_info.cylinders, buffer, 10);
-        video_print(buffer);
-        video_print("\n");
-        
-        video_print("Heads:          ");
-        itoa(ide_disk_info.heads, buffer, 10);
-        video_print(buffer);
-        video_print("\n");
-        
-        video_print("Sectors/Track:  ");
-        itoa(ide_disk_info.sectors_per_track, buffer, 10);
-        video_print(buffer);
-        video_print("\n");
-        
-        video_print("Total Sectors:  ");
-        itoa(ide_disk_info.total_sectors, buffer, 10);
-        video_print(buffer);
-        video_print("\n");
-        
-        uint64_t total_bytes = (uint64_t)ide_disk_info.total_sectors * 512;
-        uint32_t size_mb = total_bytes / (1024 * 1024);
-        video_print("Total Size:     ");
-        itoa(size_mb, buffer, 10);
-        video_print(buffer);
-        video_print(" MB\n");
-    } else {
-        video_print("No IDE disk detected\n");
-    } 
     }else if (strcmp(cmd, "vixfs") == 0) {
     vixfs_init();
 } else if (strcmp(cmd, "vixcreate") == 0) {
@@ -434,6 +443,31 @@ void handle_command(const char* cmd_line) {
             video_print(buffer);
             video_print("\n");
         }
+    }
+}else if (strcmp(cmd, "snake") == 0) {
+    snake_game();
+}//else if (strcmp(cmd, "gui" )== 0){
+    //gui_command();
+//} 
+    else if (strcmp(cmd, "ahci") == 0) {
+        ahci_command();
+    }// В handle_command добавьте улучшенную версию:
+else if (strcmp(cmd, "ide") == 0) {
+    video_print("\n");
+    
+    if (!ide_is_initialized()) {
+        video_print("IDE driver not initialized. Initializing...\n");
+        ide_init();
+    }
+    
+    ide_print_devices();
+    
+    // Показываем информацию об ошибках, если есть
+    uint32_t error = ide_get_last_error();
+    if (error != IDE_ERROR_NONE) {
+        video_print("Last error: ");
+        video_print(ide_get_error_string(error));
+        video_print("\n");
     }
 }else {
         // ЦВЕТНОЕ СООБЩЕНИЕ ДЛЯ НЕИЗВЕСТНОЙ КОМАНДЫ
@@ -485,23 +519,23 @@ void terminal_init() {
         wm_create_terminal_window();
         wm_terminal_writestring("ViXOS Terminal\n");
         wm_terminal_writestring("Code Name Nova\n");
-        wm_terminal_writestring("Build 37.25\n");
+        wm_terminal_writestring("Build 37.27\n");
         wm_terminal_writestring("===========\n");
         wm_terminal_writestring("Development\n");
     } else {
         video_clear();
         video_print("ViXOS Terminal\n");
         video_print("Code Name Nova\n");
-        video_print("Build 37.25\n");
+        video_print("Build 37.27\n");
         video_print("===========\n");
         video_print("Development\n");
         ramdisk_init();
-        update_prompt();
     }
 }
 
 void terminal_run() {
     if (gui_mode) {
+        update_prompt();
         while (1) {
             char key = keyboard_getchar();
 
@@ -539,6 +573,9 @@ void terminal_run() {
             }
         }
     } else {
+        video_print(cwd);
+        video_print("> ");
+        
         while (1) {
             char key = keyboard_getchar();
 
@@ -607,7 +644,7 @@ void terminal_run() {
             }
         }
     }
-} 
+}
 
 void terminal_writestring(const char* str) {
     while (*str) {

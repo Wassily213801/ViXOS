@@ -1,6 +1,7 @@
 #include "string.h"
 #include <stdint.h>
 #include <stddef.h>
+
 size_t strlen(const char* str) {
     int len = 0;
     while (str[len] != 0) len++;
@@ -75,6 +76,7 @@ char* strtok(char* str, const char* delim) {
 
     return token_start;
 }
+
 void* memcpy(void* dest, const void* src, uint32_t count) {
     uint8_t* dst8 = (uint8_t*)dest;
     const uint8_t* src8 = (const uint8_t*)src;
@@ -83,6 +85,7 @@ void* memcpy(void* dest, const void* src, uint32_t count) {
     }
     return dest;
 }
+
 const char* strrchr(const char* s, int c) {
     const char* last = NULL;
     if (s == NULL) return NULL;
@@ -95,13 +98,40 @@ const char* strrchr(const char* s, int c) {
     return last;
 }
 
-// Реализация strncpy (копирование строки с ограничением длины)
+// Реализация strncpy
 char* strncpy(char* dest, const char* src, size_t n) {
     char* ret = dest;
     while (n-- && (*dest++ = *src++));
-    while (n-- > 0) *dest++ = '\0'; // Дополнение нулями, если нужно
+    while (n-- > 0) *dest++ = '\0';
     return ret;
 }
+
+// Реализация strstr
+char* strstr(const char* haystack, const char* needle) {
+    if (!haystack || !needle || !*needle) {
+        return (char*)haystack;
+    }
+    
+    const char* haystack_ptr;
+    const char* needle_ptr;
+    
+    for (; *haystack; haystack++) {
+        haystack_ptr = haystack;
+        needle_ptr = needle;
+        
+        while (*haystack_ptr && *needle_ptr && (*haystack_ptr == *needle_ptr)) {
+            haystack_ptr++;
+            needle_ptr++;
+        }
+        
+        if (!*needle_ptr) {
+            return (char*)haystack;
+        }
+    }
+    
+    return NULL;
+}
+
 void itoa(int value, char* str, int base) {
     char* ptr = str;
     char* ptr1 = str;
@@ -139,9 +169,6 @@ void itoa(int value, char* str, int base) {
     }
 }
 
-// Переименованная функция для 64-битных значений
-#include <stdint.h>
-
 // 64-битное беззнаковое деление
 uint64_t __udivdi3(uint64_t num, uint64_t den) {
     uint64_t quot = 0;
@@ -171,7 +198,8 @@ uint64_t __umoddi3(uint64_t num, uint64_t den) {
     
     return rem;
 }
-// Добавьте эту функцию в string.c
+
+// Реализация strcat
 char* strcat(char* dest, const char* src) {
     char* ptr = dest;
     
@@ -190,18 +218,16 @@ char* strcat(char* dest, const char* src) {
     
     return dest;
 }
-// Добавьте эту функцию в string.c
-// Добавьте эту функцию в string.c
+
+// Реализация atoi
 int atoi(const char* str) {
     int result = 0;
     int sign = 1;
     
     // Пропускаем пробелы
-    while (*str == ' ') {
-        str++;
-    }
+    while (*str == ' ') str++;
     
-    // Обрабатываем знак
+    // Проверяем знак
     if (*str == '-') {
         sign = -1;
         str++;
@@ -209,11 +235,11 @@ int atoi(const char* str) {
         str++;
     }
     
-    // Преобразуем цифры
+    // Конвертируем цифры
     while (*str >= '0' && *str <= '9') {
         result = result * 10 + (*str - '0');
         str++;
     }
     
-    return sign * result;
+    return result * sign;
 }

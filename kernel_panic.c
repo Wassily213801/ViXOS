@@ -4,22 +4,25 @@
 #include "string.h"
 
 void panic(const char* message, int error_code) {
-    video_set_color(0x4F, 0x00); // White on red
-    video_clear();
+    // Белый текст (15) на синем фоне (1)
+    // Вместо 0x1F, передаём отдельные цвета
+    video_set_color(COLOR_WHITE, COLOR_BLUE);
+    video_clear_with_color(COLOR_WHITE, COLOR_BLUE);
     
-    video_print("\n\n           ViXOS KERNEL PANIC\n");
-    video_print("               Something went wrong and the system has halted.\n");
-    video_print("               Error: ");
+    // Выводим новый дизайн паники
+    video_print("ViXOS Kernel Panic :(\n");
+    video_print("Error: ");
     video_print(message);
-    video_print("\n             Error code: ");
+    video_print("\n\n");
     
+    video_print("Code: ");
     char code_str[16];
     itoa(error_code, code_str, 10);
     video_print(code_str);
     
-    video_print("\n\n          The system will now halt.\n");
+    video_print("\nSystem halted.\n");
     
-    // Halt the system
+    // Останавливаем систему
     asm volatile("cli");
     asm volatile("hlt");
 }
@@ -29,5 +32,5 @@ void panic_command(const char* arg) {
     if (arg && strlen(arg) > 0) {
         error_code = atoi(arg);
     }
-    panic("                 Manual panic triggered by user", error_code);
+    panic("Unexpected exception", error_code);
 }

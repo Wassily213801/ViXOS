@@ -34,6 +34,8 @@
 void keyboard_init(void);
 int keyboard_getkey(void);
 char keyboard_getchar(void);
+char keyboard_getchar_noblock(void);  // Добавлена эта строка
+int keyboard_getkey_noblock(void);
 int keyboard_is_special(int key);
 const char* keyboard_get_key_name(int key);
 

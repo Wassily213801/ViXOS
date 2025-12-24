@@ -13,6 +13,7 @@
 #include "gui.h"
 #include "ide.h" 
 #include "vixfs.h"
+#include "ahci.h"
 __attribute__((section(".multiboot")))
 const unsigned int multiboot_header[] = {
     0x1BADB002,
@@ -36,7 +37,8 @@ void kernel_main() {
     timer_install();    
     pmm_init();
     ide_init();  
-    vixfs_init();
+    //vixfs_init();
+    //ahci_init();  // Инициализируем AHCI
     //fat_init();
     //fat_list_root_directory();
     display_welcome_menu();

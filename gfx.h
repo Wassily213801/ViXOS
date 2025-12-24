@@ -1,16 +1,22 @@
+// gfx.h
 #ifndef GFX_H
 #define GFX_H
 
 #include <stdint.h>
 
-// Color definitions
-#define GFX_COLOR_BLACK     0x00
-#define GFX_COLOR_WHITE     0x0F
-#define GFX_COLOR_GRAY      0x07
-#define GFX_COLOR_DARK_GRAY 0x08
-#define GFX_COLOR_BLUE      0x01
-#define GFX_COLOR_RED       0x04
-#define GFX_COLOR_GREEN     0x02
+// Color definitions (Windows 2.0 palette)
+#define GFX_COLOR_BLACK         0x00
+#define GFX_COLOR_WHITE         0x0F
+#define GFX_COLOR_LIGHT_GRAY    0x07
+#define GFX_COLOR_DARK_GRAY     0x08
+#define GFX_COLOR_BLUE          0x01
+#define GFX_COLOR_LIGHT_BLUE    0x09
+#define GFX_COLOR_RED           0x04
+#define GFX_COLOR_GREEN         0x02
+#define GFX_COLOR_CYAN          0x03
+#define GFX_COLOR_MAGENTA       0x05
+#define GFX_COLOR_YELLOW        0x0E
+#define GFX_COLOR_BROWN         0x06
 
 // Graphics context structure
 typedef struct {
@@ -38,6 +44,5 @@ void gfx_draw_string(int x, int y, const char* str, uint8_t color);
 
 // Screen management
 void gfx_update();
-void gfx_set_palette(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 
 #endif

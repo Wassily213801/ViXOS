@@ -1,6 +1,8 @@
+// sys.c
 #include "port_io.h"
 #include "video.h"
 #include "keyboard.h"
+#include "shutdown_screen.h"
 
 void shutdown() {
     outw(0x2000, 0x604);
