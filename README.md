@@ -4,7 +4,7 @@
 **ViXOS** is an open source operating system developed from scratch by OSDev. The system uses its own `ViX Kernel`, has a minimal terminal, keyboard and video drivers, IRQ support and will soon have full memory management.
 
 > Codename: `Nova`
-> Current build: `37.27`
+> Current build: `37.29`
 > Kernel version: `ViX Kernel 0.3` 
 
 ---
