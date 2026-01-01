@@ -8,7 +8,7 @@ void boot_screen() {
     video_print("ViXOS");
     video_set_color(0x0F, 0);
     video_set_cursor(37, 10);
-
+    
     int bar_length = 12;
     int start_x = 33;
     int y_pos = 12;

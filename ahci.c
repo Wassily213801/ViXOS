@@ -5,8 +5,8 @@
 #include "pmm.h"
 #include "terminal.h"
 #include "port_io.h"
+#include "kernel_panic.h"
 
-// Глобальный контроллер
 ahci_controller_t ahci_ctrl = {0};
 
 // Макросы для безопасного чтения/записи MMIO
@@ -131,9 +131,11 @@ void ahci_init(void) {
             video_print("[AHCI] Invalid or zero ABAR address\n");
         }
         ahci_ctrl.base_address = NULL;
+        ahci_ctrl.initialized = 0; // Не помечаем как инициализированный — это ошибка
+        return;
     } else {
         ahci_ctrl.base_address = (uint32_t*)(uintptr_t)abar;
-        
+
         // Пробуем прочитать регистр CAP (с крайней осторожностью)
         if (ahci_debug) {
             uint32_t cap = safe_read_mmio(ahci_ctrl.base_address, 0x00);
@@ -141,23 +143,23 @@ void ahci_init(void) {
             terminal_writehex(cap);
             video_print("\n");
         }
-    }
-    
-    // Включаем безопасный режим (не инициализируем реальное железо)
-    ahci_ctrl.capabilities = 0;
-    ahci_ctrl.ports_implemented = 0x00000007; // Первые 3 порта "реализованы"
-    ahci_ctrl.port_count = 3;
-    ahci_ctrl.initialized = 1; // Помечаем как инициализированный для команд терминала
-    
-    // Инициализируем порты (безопасные тестовые данные)
-    for (int i = 0; i < AHCI_MAX_PORTS; i++) {
-        if (i < ahci_ctrl.port_count) {
-            ahci_init_port_safe(i);
-        } else {
-            ahci_ctrl.ports[i].state = PORT_STATE_EMPTY;
-            ahci_ctrl.ports[i].device_type = AHCI_DEVICE_NONE;
-            ahci_ctrl.ports[i].model[0] = '\0';
-            ahci_ctrl.ports[i].capacity_mb = 0;
+
+        // Включаем безопасный режим (не инициализируем реальное железо)
+        ahci_ctrl.capabilities = 0;
+        ahci_ctrl.ports_implemented = 0x00000007; // Первые 3 порта "реализованы"
+        ahci_ctrl.port_count = 3;
+        ahci_ctrl.initialized = 1; // Помечаем как инициализированный для команд терминала
+
+        // Инициализируем порты (безопасные тестовые данные)
+        for (int i = 0; i < AHCI_MAX_PORTS; i++) {
+            if (i < ahci_ctrl.port_count) {
+                ahci_init_port_safe(i);
+            } else {
+                ahci_ctrl.ports[i].state = PORT_STATE_EMPTY;
+                ahci_ctrl.ports[i].device_type = AHCI_DEVICE_NONE;
+                ahci_ctrl.ports[i].model[0] = '\0';
+                ahci_ctrl.ports[i].capacity_mb = 0;
+            }
         }
     }
     
@@ -205,11 +207,11 @@ void ahci_print_devices(void) {
         ahci_init();
     }
     
-    // Если все еще не инициализирован, выводим сообщение
-    if (!ahci_ctrl.initialized) {
-        video_print("AHCI driver not initialized\n");
-        video_print("\n");
-        return;
+    // Если все еще не инициализирован или базовый адрес MMIO некорректен,
+    // считаем это критической ошибкой и вызываем kernel panic с кодом AHCI.
+    if (!ahci_ctrl.initialized || ahci_ctrl.base_address == NULL || ahci_ctrl.port_count == 0) {
+        panic("AHCI driver failure: controller not initialized or MMIO invalid", AHCI_PANIC_CODE_DRIVER_FAILURE);
+        return; // unreachable, but keeps compiler happy
     }
     
     // Выводим информацию о каждом порте

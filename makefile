@@ -5,13 +5,13 @@ LD = ld
 CFLAGS = -ffreestanding -m32 -g -Wall -Wextra -c -fno-stack-protector -fno-pic
 ASFLAGS = -f elf32
 LDFLAGS = -m elf_i386 -T linker.ld -nostdlib -z max-page-size=0x1000
-OBJS = kernel.o terminal.o video.o keyboard.o sys.o string.o port_io.o pmm.o idt.o isr.o isr_stub.o irq.o timer.o isr_handler.o idt_load.o irq_stub.o login.o boot_screen.o ramdisk.o kernel_panic.o fat.o audio.o gfx.o gfx_window.o gui.o ide.o memory.o port_io_audio.o guess.o calculator.o time.o vixfs.o snake.o shutdown_screen.o  ahci.o pci.o
+OBJS = kernel.o terminal.o video.o keyboard.o sys.o string.o port_io.o pmm.o idt.o isr.o isr_stub.o irq.o timer.o isr_handler.o idt_load.o irq_stub.o login.o boot_screen.o ramdisk.o kernel_panic.o fat.o audio.o gfx.o gfx_window.o gui.o ide.o memory.o port_io_audio.o guess.o calculator.o time.o vixfs.o snake.o shutdown_screen.o serial.o ahci.o pci.o  license.o 
 
 ISO_DIR = isofiles
 ISO_BOOT = $(ISO_DIR)/boot
 ISO_GRUB = $(ISO_DIR)/boot/grub
 GRUB_CFG = $(ISO_GRUB)/grub.cfg
-ISO_IMAGE = ViXOS_Code_Name_Nova_Build_37.27.iso
+ISO_IMAGE = ViXOS_Code_Name_Nova_Build_37.29.iso
 
 BOOTLOADER = boot.bin
 BOOT_SRC = boot.asm

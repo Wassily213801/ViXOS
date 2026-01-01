@@ -199,5 +199,6 @@ uint8_t video_color_rgb(uint8_t r, uint8_t g, uint8_t b);
 uint8_t video_color_hsv(int hue, int saturation, int value);
 uint8_t video_color_blend(uint8_t color1, uint8_t color2, uint8_t alpha);
 void video_set_palette_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
-
+// В раздел объявлений функций (где-то после video_set_color)
+uint8_t video_get_color(void);
 #endif

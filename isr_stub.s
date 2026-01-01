@@ -95,6 +95,8 @@ isr_common:
     mov gs, ax
 
     extern isr_handler
+    mov eax, esp
+    push eax
     call isr_handler
 
     pop gs

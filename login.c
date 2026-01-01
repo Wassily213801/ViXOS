@@ -5,7 +5,7 @@
 #include "sys.h"
 #include "terminal.h"
 #include "kernel_panic.h"
-#include "shutdown_screen.h"  // Добавляем заголовок для экранов shutdown/reboot
+#include "shutdown_screen.h"
 
 #define USERNAME "vix"
 #define PASSWORD "vixos123"
@@ -135,10 +135,10 @@ void handle_welcome_menu() {
         display_welcome_menu();
         
         while (running) {
-            char key = keyboard_getchar();
+            int key = keyboard_getkey();
             
             switch (key) {
-                case 0x48:
+                case KEY_UP:
                 case 'w':
                 case 'W':
                     welcome_menu[current_selection].selected = 0;
@@ -147,7 +147,7 @@ void handle_welcome_menu() {
                     display_welcome_menu();
                     break;
                     
-                case 0x50:
+                case KEY_DOWN:
                 case 's':
                 case 'S':
                     welcome_menu[current_selection].selected = 0;
@@ -253,10 +253,10 @@ int login_prompt() {
             video_print(max_attempts_str);
             video_print("\n");
             
-            if (attempts >= 2) {
-                video_print("\nWarning: This system is not for public use.\n");
-                video_print("Development versions should not be released.\n");
-            }
+            //if (attempts >= 2) {
+               //video_print("\nWarning: This system is not for public use.\n");
+                //video_print("Development versions should not be released.\n");
+            //}
             
             if (attempts < MAX_LOGIN_ATTEMPTS) {
                 video_print("\nPress Enter to try again or ESC to cancel...\n");

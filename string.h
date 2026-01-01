@@ -20,5 +20,6 @@ char* strncpy(char* dest, const char* src, size_t n);  // Добавлено о�
 // Универсальная функция itoa для разных типов
 void itoa(int value, char* str, int base);
 void itoa64(uint64_t value, char* str, int base);
-
+uint64_t __udivdi3(uint64_t num, uint64_t den);
+uint64_t __umoddi3(uint64_t num, uint64_t den);
 #endif

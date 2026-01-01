@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-// Color definitions (Windows 2.0 palette)
+// Color definitions
 #define GFX_COLOR_BLACK         0x00
 #define GFX_COLOR_WHITE         0x0F
 #define GFX_COLOR_LIGHT_GRAY    0x07
@@ -29,7 +29,7 @@ typedef struct {
 extern GFX_Context gfx_ctx;
 
 // Initialization
-void gfx_init();
+void gfx_init(void);
 void gfx_clear_screen(uint8_t color);
 
 // Drawing functions
@@ -43,6 +43,6 @@ void gfx_draw_char(int x, int y, char c, uint8_t color);
 void gfx_draw_string(int x, int y, const char* str, uint8_t color);
 
 // Screen management
-void gfx_update();
+void gfx_update(void);
 
 #endif

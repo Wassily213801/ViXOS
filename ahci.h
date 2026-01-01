@@ -68,4 +68,10 @@ extern int ahci_debug;
 // Глобальный экземпляр контроллера
 extern ahci_controller_t ahci_ctrl;
 int ahci_is_initialized(void);
+
+// AHCI-related panic/error codes (hex values shown as requested)
+#define AHCI_PANIC_CODE_DRIVER_FAILURE   0x001451 // Основной код падения драйвера AHCI
+#define AHCI_PANIC_CODE_TIMEOUT          0x001452 // Время ожидания операций AHCI
+#define AHCI_PANIC_CODE_UNSUPPORTED      0x001453 // Неподдерживаемое устройство/режим
+#define AHCI_PANIC_CODE_MMIO_INVALID     0x001454 // Некорректный MMIO/ABAR адрес
 #endif // AHCI_H

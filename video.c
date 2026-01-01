@@ -2,18 +2,17 @@
 #include "port_io.h"
 #include "string.h"
 
-// Конфигурация с увеличенными разрешениями
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define TEXT_MEMORY ((volatile uint16_t*)0xB8000)
 
-// Выбор разрешения по умолчанию (1024x768)
+
 #define GFX_WIDTH 1024
 #define GFX_HEIGHT 768
 #define GFX_BPP 8
 #define GFX_MEMORY ((volatile uint8_t*)0xE0000000)
 #define GFX_BUFFER_SIZE (GFX_WIDTH * GFX_HEIGHT)
-
+#define GFX_MODE_1024x768_8BIT 0x105
 // GUI конфигурация
 #define MAX_WINDOWS 20
 #define MAX_WINDOW_WIDTH 800
@@ -29,7 +28,7 @@
 #define FONT_CHARS 256
 #define FONT_SMALL_WIDTH 6
 #define FONT_SMALL_HEIGHT 8
-
+#define FONT_SMALL_CHARS 256
 // Цветовая палитра (256 цветов)
 static uint8_t color_palette[256][3];
 
@@ -387,13 +386,13 @@ void video_init_graphics(void) {
     graphics_mode = 1;
     current_gfx_mode = GFX_MODE_1024x768_8BIT;
     video_init_color_palette();
-    
+
+    // По умолчанию не предполагаем прямой доступ к аппаратной видеопамяти
+    // Инициализируем только внутренние буферы — это безопасно и не приведёт к
+    // записи в несуществующую память (например, 0xE0000000).
     for (int i = 0; i < GFX_BUFFER_SIZE; i++) {
-        GFX_MEMORY[i] = COLOR_BLACK;
-        if (double_buffering_enabled) {
-            front_buffer[i] = COLOR_BLACK;
-            back_buffer[i] = COLOR_BLACK;
-        }
+        front_buffer[i] = COLOR_BLACK;
+        back_buffer[i] = COLOR_BLACK;
     }
 }
 
@@ -403,24 +402,20 @@ void video_set_graphics_mode(int mode) {
 }
 
 void video_set_pixel(int x, int y, uint8_t color) {
-    if (x >= 0 && x < GFX_WIDTH && y >= 0 && y < GFX_HEIGHT) {
-        if (double_buffering_enabled) {
-            back_buffer[y * GFX_WIDTH + x] = color;
-        } else {
-            GFX_MEMORY[y * GFX_WIDTH + x] = color;
-        }
+    if (x < 0 || x >= GFX_WIDTH || y < 0 || y >= GFX_HEIGHT) return;
+
+    if (double_buffering_enabled) {
+        back_buffer[y * GFX_WIDTH + x] = color;
+    } else {
+        // При отключённой двойной буферизации пишем в передний буфер.
+        front_buffer[y * GFX_WIDTH + x] = color;
     }
 }
 
 uint8_t video_get_pixel(int x, int y) {
-    if (x >= 0 && x < GFX_WIDTH && y >= 0 && y < GFX_HEIGHT) {
-        if (double_buffering_enabled) {
-            return back_buffer[y * GFX_WIDTH + x];
-        } else {
-            return GFX_MEMORY[y * GFX_WIDTH + x];
-        }
-    }
-    return 0;
+    if (x < 0 || x >= GFX_WIDTH || y < 0 || y >= GFX_HEIGHT) return 0;
+    if (double_buffering_enabled) return back_buffer[y * GFX_WIDTH + x];
+    return front_buffer[y * GFX_WIDTH + x];
 }
 
 // Улучшенные графические примитивы
@@ -947,20 +942,37 @@ uint8_t video_color_hsv(int hue, int saturation, int value) {
 
 // ========== ПРОЧИЕ ФУНКЦИИ ==========
 
-void video_switch_to_text(void) {
-    graphics_mode = 0;
+void video_init_graphics_simple(void) {
+    // В защищённом режиме BIOS-интерruptы недоступны — не вызываем int 0x10.
+    // Вместо этого помечаем, что графический режим активен, и инициализируем
+    // внутренние буферы и палитру. Аппаратную инициализацию VBE нужно делать
+    // отдельно (если требуется) через соответствующий драйвер.
+    graphics_mode = 1;
+    current_gfx_mode = GFX_MODE_640x480_8BIT;
+    video_init_color_palette();
+    for (int i = 0; i < GFX_BUFFER_SIZE; i++) {
+        front_buffer[i] = COLOR_BLACK;
+        back_buffer[i] = COLOR_BLACK;
+    }
 }
 
 void video_switch_to_graphics(void) {
-    graphics_mode = 1;
+    // Безопасная переключалка: выполняет только внутреннюю инициализацию.
+    video_init_graphics_simple();
+}
+
+void video_switch_to_text(void) {
+    // Безопасный возврат в текстовый режим без BIOS-интерrupt'ов.
+    graphics_mode = 0;
+    // Сброс курсора и очистка текстового буфера выполняются внешними функциями.
 }
 
 uint8_t* video_get_framebuffer(void) {
-    if (double_buffering_enabled) {
-        return back_buffer;
-    } else {
-        return (uint8_t*)GFX_MEMORY;
-    }
+    // Возвращаем всегда указатель на рабочий (обратно дозаполняемый) буфер.
+    // Это безопасно: внешние модули работают с внутренними буферами и не
+    // пытаются обращаться напрямую к потенциально несуществующей аппаратной
+    // видеопамяти.
+    return double_buffering_enabled ? back_buffer : front_buffer;
 }
 
 int video_get_width(void) {
@@ -1016,11 +1028,15 @@ void video_enable_double_buffering(int enable) {
 
 void video_swap_buffers(void) {
     if (!double_buffering_enabled) return;
-    
+
+    // Копируем back -> front. Запись в аппаратную область GFX_MEMORY выполняется
+    // только если она действительно доступна; по умолчанию — не выполняем.
     for (int i = 0; i < GFX_BUFFER_SIZE; i++) {
         front_buffer[i] = back_buffer[i];
-        GFX_MEMORY[i] = back_buffer[i];
     }
+    // Если у вас есть реализация, которая мапит GFX_MEMORY в реальную видеопамять,
+    // можно добавить здесь копирование в GFX_MEMORY. По умолчанию этого не делаем
+    // чтобы избежать записи по недопустимым адресам в средах разработки.
 }
 
 void video_clear_back_buffer(uint8_t color) {
@@ -1036,4 +1052,22 @@ void video_print_int(int num) {
     char buffer[12];
     int_to_string(num, buffer, 10);
     video_print(buffer);
+}
+uint8_t video_get_color(void) {
+    // Возвращает текущий атрибут (фон + текст)
+    return make_vga_attribute(text_color, bg_color);
+}
+static void print_colored(const char* str, uint8_t color) {
+    // Сохраняем текущие цвета
+    uint8_t old_text_color = video_get_text_color();
+    uint8_t old_bg_color = video_get_bg_color();
+    
+    // Устанавливаем новый цвет текста (фон оставляем черным)
+    video_set_color(color, old_bg_color);
+    
+    // Печатаем
+    video_print(str);
+    
+    // Восстанавливаем цвета
+    video_set_color(old_text_color, old_bg_color);
 }

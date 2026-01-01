@@ -2,13 +2,15 @@
 #include "video.h"
 #include "keyboard.h"
 #include "string.h"
+#include "time.h"
 
 #define SNAKE_WIDTH 40
 #define SNAKE_HEIGHT 20
 #define SNAKE_START_LENGTH 3
 #define SNAKE_MAX_LENGTH 200
-#define GAME_SPEED 150  // Скорость игры (меньше = быстрее)
-
+#define GAME_SPEED 300  // Скорость игры (меньше = быстрее)
+#define MAX_SPEED 30
+#define MIN_SPEED 500
 typedef struct {
     int x, y;
 } Point;
@@ -29,6 +31,8 @@ static int score;
 static int game_over;
 static int paused;
 static int speed;
+static int frame_counter;  // Счетчик кадров для регулировки скорости
+static int running = 1;    // Флаг работы игры
 
 // Улучшенный генератор случайных чисел
 static int simple_rand(int max) {
@@ -46,6 +50,8 @@ static void snake_init(void) {
     game_over = 0;
     paused = 0;
     speed = GAME_SPEED;
+    frame_counter = 0;
+    running = 1;
     
     // Инициализация змейки в центре поля
     int start_x = SNAKE_WIDTH / 2;
@@ -109,7 +115,7 @@ static void draw_game(void) {
     video_set_color(COLOR_YELLOW, COLOR_BLACK);
     
     // Заголовок и счёт
-    video_print_at("=== SNAKE GAME v0.2 ===", ALIGN_CENTER, ALIGN_TOP);
+    video_print_at("=== SNAKE GAME v1.0 ===", ALIGN_CENTER, ALIGN_TOP);
     
     video_set_cursor(0, 1);
     video_set_color(COLOR_LIGHT_CYAN, COLOR_BLACK);
@@ -222,7 +228,7 @@ static void draw_game(void) {
     } else {
         video_print("Controls: ");
         video_set_color(COLOR_LIGHT_GREEN, COLOR_BLACK);
-        video_print("WASD");
+        video_print("WASD / ARROWS");
         video_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
         video_print(" to move, ");
         video_set_color(COLOR_LIGHT_BLUE, COLOR_BLACK);
@@ -233,10 +239,6 @@ static void draw_game(void) {
         video_print("ESC");
         video_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
         video_print(" to quit\n");
-        
-        video_print("Speed: ");
-        video_print_int(GAME_SPEED - speed + 100);
-        video_print("%");
     }
 }
 
@@ -302,7 +304,7 @@ static void update_game(void) {
         score += 10;
         
         // Увеличиваем скорость каждые 50 очков
-        if (score % 50 == 0 && speed > 50) {
+        if (score % 50 == 0 && speed > MAX_SPEED) {
             speed -= 10;
         }
         
@@ -312,12 +314,15 @@ static void update_game(void) {
 
 // Обработка ввода (неблокирующая)
 static void handle_input(void) {
+    // Проверяем обычные символы (WASD)
     char key = keyboard_getchar_noblock();
-
+    
     if (key) {
         if (game_over) {
             if (key == ' ' || key == '\n' || key == '\r') {
                 snake_init(); // Перезапуск игры
+            } else if (key == 0x1B) { // ESC
+                running = 0;
             }
         } else {
             switch (key) {
@@ -340,11 +345,14 @@ static void handle_input(void) {
                 case ' ': // Пауза
                     paused = !paused;
                     break;
+                case 0x1B: // ESC - выход
+                    running = 0;
+                    break;
                 case '+': // Увеличить скорость
-                    if (speed > 50) speed -= 10;
+                    if (speed > MAX_SPEED) speed -= 10;
                     break;
                 case '-': // Уменьшить скорость
-                    if (speed < 300) speed += 10;
+                    if (speed < MIN_SPEED) speed += 10;
                     break;
             }
         }
@@ -356,6 +364,8 @@ static void handle_input(void) {
         if (game_over) {
             if (special_key == ' ') {
                 snake_init();
+            } else if (special_key == KEY_ESC) {
+                running = 0;
             }
         } else {
             switch (special_key) {
@@ -374,15 +384,19 @@ static void handle_input(void) {
                 case ' ':
                     paused = !paused;
                     break;
+                case KEY_ESC:
+                    running = 0;
+                    break;
             }
         }
     }
 }
 
-// Простая функция задержки
+// Улучшенная функция задержки
 static void snake_delay(int ms) {
+    // Простая задержка на основе циклов
     for (volatile int i = 0; i < ms * 1000; i++) {
-        __asm__ volatile("nop");
+        // Пустая операция для задержки
     }
 }
 
@@ -392,38 +406,48 @@ void snake_game(void) {
     
     video_clear_with_color(COLOR_BLACK, COLOR_BLACK);
     video_set_color(COLOR_YELLOW, COLOR_BLACK);
-    video_print_at("SNAKE GAME v0.2", ALIGN_CENTER, ALIGN_MIDDLE);
-    video_print_at("Loading...", ALIGN_CENTER, ALIGN_BOTTOM);
-    snake_delay(1000);
+    video_print_at("SNAKE GAME v1.0", ALIGN_CENTER, ALIGN_MIDDLE);
+    video_print_at("Controls: WASD or Arrow Keys to move", ALIGN_CENTER, ALIGN_MIDDLE + 2);
+    video_print_at("Press SPACE to start...", ALIGN_CENTER, ALIGN_BOTTOM);
     
-    int running = 1;
+    // Ждем нажатия SPACE
+    while (1) {
+        char key = keyboard_getchar_noblock();
+        int special = keyboard_getkey_noblock();
+        if (key == ' ' || special == ' ' || key == '\n' || key == '\r') {
+            break;
+        }
+        snake_delay(10);
+    }
+    
+    int last_update = 0;
+    int update_interval = speed; // Интервал обновления в "тиках"
     
     while (running) {
+        frame_counter++;
+        
         // Обработка ввода
         handle_input();
         
-        // Проверка на выход (неблокирующая)
-        {
-            int k = keyboard_getkey_noblock();
-            if (k == KEY_ESC) { // ESC
-                running = 0;
-                break;
-            }
-            // Если это был другой ключ — положим его обратно в обработку (не нужно, handle_input уже опрашивает буфер)
+        // Обновляем игру с фиксированным интервалом
+        if (frame_counter - last_update >= update_interval) {
+            update_game();
+            draw_game();
+            last_update = frame_counter;
+            
+            // Корректируем интервал обновления на основе скорости
+            update_interval = speed;
         }
         
-        // Обновляем и рисуем игру
-        update_game();
-        draw_game();
-        
-        // Задержка для регулировки скорости
-        snake_delay(speed);
+        // Небольшая задержка для снижения нагрузки на CPU
+        snake_delay(1);
     }
     
     video_clear_with_color(COLOR_BLACK, COLOR_BLACK);
     video_set_color(COLOR_LIGHT_GREEN, COLOR_BLACK);
     video_print_at("Thanks for playing!", ALIGN_CENTER, ALIGN_MIDDLE);
-    video_print_at("Final score: ", ALIGN_CENTER, ALIGN_BOTTOM);
+    video_set_cursor(35, 12);
+    video_print("Final score: ");
     video_print_int(score);
     snake_delay(2000);
 }

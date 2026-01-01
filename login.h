@@ -10,6 +10,8 @@
 
 int login_prompt();  // Изменено с void на int
 void display_welcome_menu();
+void draw_welcome_menu();
+void update_welcome_selection(int old_selection, int new_selection);
 void handle_welcome_menu();
 void handle_menu_selection();
 void display_menu();

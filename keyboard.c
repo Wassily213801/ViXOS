@@ -10,7 +10,7 @@ static int key_released = 1;
 
 // Буфер для хранения нажатых клавиш
 #define KEYBOARD_BUFFER_SIZE 32
-static char keyboard_buffer[KEYBOARD_BUFFER_SIZE];
+static unsigned char keyboard_buffer[KEYBOARD_BUFFER_SIZE];
 static int buffer_start = 0;
 static int buffer_end = 0;
 static int buffer_count = 0;
@@ -34,7 +34,7 @@ static const char shift_map[128] = {
 };
 
 // Добавляем символ в буфер
-static void keyboard_buffer_put(char c) {
+static void keyboard_buffer_put(unsigned char c) {
     if (buffer_count < KEYBOARD_BUFFER_SIZE) {
         keyboard_buffer[buffer_end] = c;
         buffer_end = (buffer_end + 1) % KEYBOARD_BUFFER_SIZE;
@@ -43,12 +43,12 @@ static void keyboard_buffer_put(char c) {
 }
 
 // Берем символ из буфера
-static char keyboard_buffer_get(void) {
+static int keyboard_buffer_get(void) {
     if (buffer_count > 0) {
-        char c = keyboard_buffer[buffer_start];
+        unsigned char c = keyboard_buffer[buffer_start];
         buffer_start = (buffer_start + 1) % KEYBOARD_BUFFER_SIZE;
         buffer_count--;
-        return c;
+        return (int)c;
     }
     return 0;
 }
@@ -129,7 +129,7 @@ static void process_scancode(uint8_t scancode) {
             case 0x51: special_key = KEY_PAGEDOWN; break;
         }
         if (special_key) {
-            keyboard_buffer_put((char)special_key);
+            keyboard_buffer_put((unsigned char)special_key);
         }
         return;
     }
@@ -138,27 +138,27 @@ static void process_scancode(uint8_t scancode) {
     // иначе — навигацию (HOME/END/PGUP/PGDN/INS/DEL/стрелки)
     switch (scancode) {
         case 0x47: // Numpad 7 / Home
-            if (num_lock) { keyboard_buffer_put('7'); return; } else { keyboard_buffer_put((char)KEY_HOME); return; }
+            if (num_lock) { keyboard_buffer_put('7'); return; } else { keyboard_buffer_put((unsigned char)KEY_HOME); return; }
         case 0x48: // Numpad 8 / Up
-            if (num_lock) { keyboard_buffer_put('8'); return; } else { keyboard_buffer_put((char)KEY_UP); return; }
+            if (num_lock) { keyboard_buffer_put('8'); return; } else { keyboard_buffer_put((unsigned char)KEY_UP); return; }
         case 0x49: // Numpad 9 / PageUp
-            if (num_lock) { keyboard_buffer_put('9'); return; } else { keyboard_buffer_put((char)KEY_PAGEUP); return; }
+            if (num_lock) { keyboard_buffer_put('9'); return; } else { keyboard_buffer_put((unsigned char)KEY_PAGEUP); return; }
         case 0x4B: // Numpad 4 / Left
-            if (num_lock) { keyboard_buffer_put('4'); return; } else { keyboard_buffer_put((char)KEY_LEFT); return; }
+            if (num_lock) { keyboard_buffer_put('4'); return; } else { keyboard_buffer_put((unsigned char)KEY_LEFT); return; }
         case 0x4C: // Numpad 5
             if (num_lock) { keyboard_buffer_put('5'); return; } else { return; }
         case 0x4D: // Numpad 6 / Right
-            if (num_lock) { keyboard_buffer_put('6'); return; } else { keyboard_buffer_put((char)KEY_RIGHT); return; }
+            if (num_lock) { keyboard_buffer_put('6'); return; } else { keyboard_buffer_put((unsigned char)KEY_RIGHT); return; }
         case 0x4F: // Numpad 1 / End
-            if (num_lock) { keyboard_buffer_put('1'); return; } else { keyboard_buffer_put((char)KEY_END); return; }
+            if (num_lock) { keyboard_buffer_put('1'); return; } else { keyboard_buffer_put((unsigned char)KEY_END); return; }
         case 0x50: // Numpad 2 / Down
-            if (num_lock) { keyboard_buffer_put('2'); return; } else { keyboard_buffer_put((char)KEY_DOWN); return; }
+            if (num_lock) { keyboard_buffer_put('2'); return; } else { keyboard_buffer_put((unsigned char)KEY_DOWN); return; }
         case 0x51: // Numpad 3 / PageDown
-            if (num_lock) { keyboard_buffer_put('3'); return; } else { keyboard_buffer_put((char)KEY_PAGEDOWN); return; }
+            if (num_lock) { keyboard_buffer_put('3'); return; } else { keyboard_buffer_put((unsigned char)KEY_PAGEDOWN); return; }
         case 0x52: // Numpad 0 / Insert
-            if (num_lock) { keyboard_buffer_put('0'); return; } else { keyboard_buffer_put((char)KEY_INSERT); return; }
+            if (num_lock) { keyboard_buffer_put('0'); return; } else { keyboard_buffer_put((unsigned char)KEY_INSERT); return; }
         case 0x53: // Numpad . / Delete
-            if (num_lock) { keyboard_buffer_put('.'); return; } else { keyboard_buffer_put((char)KEY_DELETE); return; }
+            if (num_lock) { keyboard_buffer_put('.'); return; } else { keyboard_buffer_put((unsigned char)KEY_DELETE); return; }
         case 0x35: // Numpad / (обычно E0 35 на некоторых клавиатурах)
             keyboard_buffer_put('/'); return;
         case 0x37: // Numpad *
@@ -185,10 +185,10 @@ static void process_scancode(uint8_t scancode) {
         case 0x57: special_key = KEY_F11; break;
         case 0x58: special_key = KEY_F12; break;
     }
-    if (special_key) {
-        keyboard_buffer_put((char)special_key);
-        return;
-    }
+        if (special_key) {
+            keyboard_buffer_put((unsigned char)special_key);
+            return;
+        }
 
     // Обработка обычных символов
     char key;
@@ -209,7 +209,7 @@ static void process_scancode(uint8_t scancode) {
 
     // Если клавиша действительна, добавляем в буфер
     if (key != 0) {
-        keyboard_buffer_put(key);
+        keyboard_buffer_put((unsigned char)key);
     }
 }
 
@@ -224,7 +224,7 @@ int keyboard_getkey(void) {
         process_scancode(scancode);
     }
     
-    return (int)keyboard_buffer_get();
+    return keyboard_buffer_get();
 }
 
 char keyboard_getchar(void) {
@@ -239,12 +239,12 @@ char keyboard_getchar(void) {
 char keyboard_getchar_noblock(void) {
     // Сначала проверяем буфер
     if (buffer_count > 0) {
-        char c = keyboard_buffer_get();
+        int c = keyboard_buffer_get();
         // Пропускаем специальные клавиши в non-blocking режиме
-        if ((unsigned char)c >= 0x80) {
+        if (c >= 0x80) {
             return 0;
         }
-        return c;
+        return (char)c;
     }
     
     // Проверяем, есть ли новые данные от клавиатуры
@@ -254,11 +254,11 @@ char keyboard_getchar_noblock(void) {
         
         // Если что-то добавилось в буфер, возвращаем (только обычные символы)
         if (buffer_count > 0) {
-            char c = keyboard_buffer_get();
-            if ((unsigned char)c >= 0x80) {
+            int c = keyboard_buffer_get();
+            if (c >= 0x80) {
                 return 0;
             }
-            return c;
+            return (char)c;
         }
     }
     
@@ -268,7 +268,7 @@ char keyboard_getchar_noblock(void) {
 int keyboard_getkey_noblock(void) {
     // Если есть данные в буфере — возвращаем
     if (buffer_count > 0) {
-        return (int)keyboard_buffer_get();
+        return keyboard_buffer_get();
     }
 
     // Если есть данные в порту — обработаем и вернём, иначе 0
@@ -277,7 +277,7 @@ int keyboard_getkey_noblock(void) {
         process_scancode(scancode);
 
         if (buffer_count > 0) {
-            return (int)keyboard_buffer_get();
+            return keyboard_buffer_get();
         }
     }
 

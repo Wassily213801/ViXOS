@@ -19,4 +19,6 @@ void guess_game_integrated(void); // Оставьте только это объ
 void time_command(); // Добавьте эту строку
 void ahci_command(); // Добавляем объявление команды AHCI
 void ide_command(); // Добавьте это объявление
+void show_gpl_license(void);  // Добавьте это объявление
+extern void gui_command(void);
 #endif

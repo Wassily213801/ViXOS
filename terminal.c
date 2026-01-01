@@ -11,6 +11,7 @@
 #include "gfx.h"
 #include "ide.h"
 #include "audio.h"
+#include "serial.h"
 #include "guess.h"
 #include "calculator.h"
 #include "pmm.h"
@@ -19,6 +20,7 @@
 #include "snake.h"
 #include "shutdown_screen.h"
 #include "ahci.h"
+#include "license.h"  
 void gui_command();
 void calculator_command();
 void update_prompt();
@@ -32,7 +34,8 @@ void terminal_puts(const char* str);
 void terminal_putchar(char c);
 void terminal_writehex(uint32_t value);
 void print_memory_info(const char* label, uint64_t bytes);
-
+// Объявление функции gui_command() которая определена в gui.c
+extern void gui_command(void);
 #define MAX_HISTORY 10
 #define MAX_COMMAND_LENGTH 128
 #define MAX_DIRS 16
@@ -48,14 +51,13 @@ typedef struct {
 
 static Directory dirs[MAX_DIRS];
 static int dir_count = 1;
-
 static char cwd[MAX_PATH_LENGTH] = "vix";
 static char history[MAX_HISTORY][MAX_COMMAND_LENGTH];
 static int history_count = 0;
 static int history_index = 0;
 static char command[MAX_COMMAND_LENGTH];
 static int command_len = 0;
-int gui_mode = 0;
+extern int gui_mode;
 
 const char* commands[] = {
     "help", "clear", "version", "off", "reboot",
@@ -63,9 +65,9 @@ const char* commands[] = {
     "add", "rm", "save", "load", "meta",
     "cd", "logoff", "audio", "panic", "guess",
     "calc", "meminfo", "time", "ide",
-    "vixfs", "vixcreate", "vixdelete", "vixlist", "vixwrite", "vixread", "snake", "ahci"  // Добавьте эти команды
+    "vixfs", "vixcreate", "vixdelete", "vixlist", "vixwrite", "vixread", "snake", //"ahci"
 };
-const int num_commands = 33;  // Обновите количество команд
+const int num_commands = 33;
 
 // Добавляем вспомогательную функцию для форматирования вывода памяти
 void print_memory_info(const char* label, uint64_t bytes) {
@@ -101,11 +103,6 @@ void print_memory_info(const char* label, uint64_t bytes) {
         video_print(buffer);
         video_print(" GB\n");
     }
-}
-
-void gui_command() {
-    gui_mode = 1;
-    gui_run();
 }
 void ahci_command() {
     video_print("\n");
@@ -212,7 +209,7 @@ void handle_command(const char* cmd_line) {
         video_print("echo, cat <file>, read <file>, add <file>\n");
         video_print("rm <file>, save, load, meta <file> logoff, audio, guess, meminfo, time, snake,\n");
         video_print("panic <message>, calc, ideinfo,\n");
-        video_print("vixfs, vixcreate <file>, vixdelete <file>, vixlist, vixwrite <file> <data>, vixread <file>, ahci\n");
+        video_print("vixfs, vixcreate <file>, vixdelete <file>, vixlist, vixwrite <file> <data>, vixread <file>\n");
     } else if (strcmp(cmd, "add") == 0) {
         if (!arg1) {
             video_print("Usage: add <filename>\n");
@@ -260,19 +257,19 @@ void handle_command(const char* cmd_line) {
         ramdisk_save("ramdisk.bin");
     } else if (strcmp(cmd, "version") == 0) {
         video_print("ViX Kernel 0.3 Beta\n");
-        video_print("ViXOS Code Name Nova Build: 37.27\n");
+        video_print("Copyright (C) 2025-2026 ViXOS Developers\n");
+        video_print("Version: 26.7 Alpha Beta\n");
+        video_print("Build Date: 2026-01-01\n");
         video_print("Architecture: i386\n");
+        video_print("code name: Nova\n");
         video_print("License: GPLv2\n");
     } else if (strcmp(cmd, "load") == 0) {
         ramdisk_load("ramdisk.bin");
-    } else if (strcmp(cmd, "off") == 0) {
-    video_clear();
+    } else if (strcmp(cmd, "off") == 0 || strcmp(cmd, "shutdown") == 0) {
+    // Просто вызываем shutdown_screen, который сам вызовет shutdown()
+    // и покажет соответствующее сообщение
     shutdown_screen();
-    
-    shutdown();
-    safe_shutdown_screen();
-    
-} else if (strcmp(cmd, "reboot") == 0) {
+}else if (strcmp(cmd, "reboot") == 0) {
     video_clear();
     reboot_screen();
 
@@ -323,6 +320,7 @@ void handle_command(const char* cmd_line) {
         display_welcome_menu();
         handle_welcome_menu();
         terminal_init();
+        terminal_run();
     } else if (strcmp(cmd, "guess") == 0) {
         guess_game();
     } else if (strcmp(cmd, "calc") == 0) {
@@ -444,32 +442,85 @@ void handle_command(const char* cmd_line) {
             video_print("\n");
         }
     }
-}else if (strcmp(cmd, "snake") == 0) {
+} else if (strcmp(cmd, "snake") == 0) {
     snake_game();
-}//else if (strcmp(cmd, "gui" )== 0){
-    //gui_command();
-//} 
-    else if (strcmp(cmd, "ahci") == 0) {
-        ahci_command();
-    }// В handle_command добавьте улучшенную версию:
-else if (strcmp(cmd, "ide") == 0) {
-    video_print("\n");
+} else if (strcmp(cmd, "gui" )== 0) {
+    video_print("[TERM] handling 'gui' command\n");
+    serial_write("[TERM] handling 'gui' command\n");
+    gui_command();
+    video_print("[TERM] returned from gui_command()\n");
+    serial_write("[TERM] returned from gui_command()\n");
+}
+    //else if (strcmp(cmd, "ahci") == 0) {
+        //ahci_command();
+    //}// В handle_command добавьте улучшенную версию:
+//else if (strcmp(cmd, "ide") == 0) {
+    //video_print("\n");
     
-    if (!ide_is_initialized()) {
-        video_print("IDE driver not initialized. Initializing...\n");
-        ide_init();
-    }
+    //if (!ide_is_initialized()) {
+        //video_print("IDE driver not initialized. Initializing...\n");
+       // ide_init();
+   // }
     
-    ide_print_devices();
+    //ide_print_devices();
     
     // Показываем информацию об ошибках, если есть
-    uint32_t error = ide_get_last_error();
-    if (error != IDE_ERROR_NONE) {
-        video_print("Last error: ");
-        video_print(ide_get_error_string(error));
-        video_print("\n");
-    }
-}else {
+    //uint32_t error = ide_get_last_error();
+    //if (error != IDE_ERROR_NONE) {
+       // video_print("Last error: ");
+       // video_print(ide_get_error_string(error));
+       // video_print("\n");
+   // }
+//} 
+// Добавьте этот блок в функцию handle_command(), например после "snake":
+else if (strcmp(cmd, "gpl") == 0 || strcmp(cmd, "license") == 0) {
+    show_gpl_license();
+}else if (strcmp(cmd, "sysfiles") == 0) {
+        ramdisk_list_system_files();
+    } else if (strcmp(cmd, "protect") == 0) {
+        if (!arg1) {
+            video_print("Usage: protect <filename>\n");
+        } else {
+            ramdisk_protect_file(arg1);
+            video_print("File protected as read-only\n");
+        }
+    } else if (strcmp(cmd, "unprotect") == 0) {
+        if (!arg1) {
+            video_print("Usage: unprotect <filename>\n");
+        } else {
+            ramdisk_unprotect_file(arg1);
+            video_print("File write permission restored\n");
+        }
+    } else if (strcmp(cmd, "write") == 0) {
+        if (!arg1) {
+            video_print("Usage: write <filename> [content]\n");
+        } else if (!arg2) {
+            // Интерактивный ввод
+            char content[MAX_FILE_CONTENT];
+            read_file_content(content, sizeof(content));
+            
+            if (ramdisk_write_file(arg1, content) == 0) {
+                video_set_color(0x0A, 0x00);
+                video_print("File written successfully.\n");
+                video_set_color(0x07, 0x00);
+            } else {
+                video_set_color(0x0C, 0x00);
+                video_print("Failed to write file.\n");
+                video_set_color(0x07, 0x00);
+            }
+        } else {
+            // Запись из аргумента команды
+            if (ramdisk_write_file(arg1, arg2) == 0) {
+                video_set_color(0x0A, 0x00);
+                video_print("File written successfully.\n");
+                video_set_color(0x07, 0x00);
+            } else {
+                video_set_color(0x0C, 0x00);
+                video_print("Failed to write file.\n");
+                video_set_color(0x07, 0x00);
+            }
+        }
+    }else {
         // ЦВЕТНОЕ СООБЩЕНИЕ ДЛЯ НЕИЗВЕСТНОЙ КОМАНДЫ
         video_set_color(0x0C, 0x00); // Красный текст на черном фоне
         video_print("Unknown command: ");
@@ -519,14 +570,14 @@ void terminal_init() {
         wm_create_terminal_window();
         wm_terminal_writestring("ViXOS Terminal\n");
         wm_terminal_writestring("Code Name Nova\n");
-        wm_terminal_writestring("Build 37.27\n");
+        wm_terminal_writestring("Build 37.29\n");
         wm_terminal_writestring("===========\n");
         wm_terminal_writestring("Development\n");
     } else {
         video_clear();
         video_print("ViXOS Terminal\n");
         video_print("Code Name Nova\n");
-        video_print("Build 37.27\n");
+        video_print("Build 37.29\n");
         video_print("===========\n");
         video_print("Development\n");
         ramdisk_init();

@@ -20,6 +20,5 @@ static inline void outw(uint16_t port, uint16_t value) {
 
 void shutdown();
 void reboot();
-void safe_shutdown_screen(); 
 
 #endif
